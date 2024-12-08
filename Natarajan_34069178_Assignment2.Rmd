@@ -1,0 +1,273 @@
+---
+title: "Natarajan_34069178_Assignment2"
+author: "Subbu"
+date: "2024-04-29"
+output: html_document
+---
+
+```{r}
+#Question 1 
+## Load the required libraries
+library(dplyr)
+library(ggplot2)
+#Read the CSV file into new dataframe
+irish_df <- read.csv("ireland_news.csv")
+#Filter the data for articles 
+irish_independent_df <- irish_df %>%
+  filter(news_provider == "Irish Independent")
+#Convert the "publish_date" column to date format
+irish_independent_df$publish_date <- as.Date(irish_independent_df$publish_date, format = "%A, %dth of %B, %Y")
+#Remove NA values in the dataset
+irish_independent_df <- na.omit(irish_independent_df)
+#Sort the DataFrame by the "publish_date" column in ascending order
+sorted_irish_independent_df <- irish_independent_df %>%
+  arrange(publish_date)
+#Display the earliest and latest articles
+earliest_article <- head(sorted_irish_independent_df, 1)
+latest_article <- tail(sorted_irish_independent_df, 1)
+#Print the earliest article 
+print("Earliest article from Irish Independent:")
+print(earliest_article[c("publish_date", "headline_category", "headline_text", "news_provider")])
+#Print the Latest article
+print("\nLatest article from Irish Independent:")
+print(latest_article[c("publish_date", "headline_category", "headline_text", "news_provider")])
+#   Print the last 5 records from the dataset
+print("\nLast 5 records of the sorted data:")
+print(tail(sorted_irish_independent_df, 5))
+```
+
+
+```{r}
+#Question 2A
+
+# Convert the headline_category values to lowercase 
+irish_df$headline_category <- tolower(irish_df$headline_category)
+
+# Count the number of unique headline_category values
+num_unique_categories <- irish_df %>%
+  distinct(headline_category) %>%
+  nrow()
+#Print the Number of unique headline category values
+print(paste("Number of unique headline_category values:", num_unique_categories))
+
+#Question 2B
+
+# Define keywords and year range
+keywords <- c("Ireland", "Irish", "US", "USA")
+years <- 2000:2024
+
+# Function to check if a headline contains any of the keywords and a year
+contains_keyword_and_year <- function(headline, keywords, years) {
+  any_keyword <- any(grepl(paste(keywords, collapse = "|"), headline, ignore.case = TRUE))
+  any_year <- any(grepl(paste(years, collapse = "|"), headline))
+  return(any_keyword && any_year)
+}
+
+# Filter news category articles containing either of the keywords and a year in the headline_text
+matching_articles <- irish_df %>%
+  filter(headline_category == "news") %>%
+  filter(sapply(headline_text, contains_keyword_and_year, keywords, years)) %>%
+  na.omit()
+
+# Count the number of matching articles
+num_matching_articles <- nrow(matching_articles)
+print(paste("Number of news category articles containing either 'Ireland', 'Irish', 'US', or 'USA' along with year digits from 2000 to 2024 in headline_text:", num_matching_articles))
+```
+
+```{r}
+#Question 3
+# Convert the "publish_date" column to date format
+irish_df$publish_date <- as.Date(irish_df$publish_date, format = "%A, %dth of %B, %Y")
+
+# Filter articles published on Mondays
+monday_articles <- irish_df %>%
+  filter(weekdays(publish_date) == "Monday")
+
+# Count the number of articles for each headline category
+article_count <- monday_articles %>%
+  group_by(headline_category) %>%
+  summarise(num_articles = n()) %>%
+  arrange(desc(num_articles))
+
+# Select the top 10 headline categories with the largest number of articles
+top_10_categories <- head(article_count, 10)
+
+# Plot using bar graph - headline category vs number of articles
+ggplot(top_10_categories, aes(x = headline_category, y = num_articles, fill = headline_category)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Top 10 Headline Categories with the Largest Number of Articles Published on Mondays",
+       x = "Headline Category",
+       y = "Number of Articles") +
+  scale_fill_discrete(name = "Headline Category") +
+  theme_minimal()
+```
+
+
+```{r}
+#Question 4
+# Compute the total number of articles for each headline category and news provider
+total_article <- irish_df %>%
+  group_by(headline_category, news_provider) %>%
+  summarise(total_articles = n()) %>%
+  ungroup()
+
+# Compute and display the statistical information (Min, Max, and Mean) of the total number of articles for each news provider
+statistical_info <- total_article %>%
+  group_by(news_provider) %>%
+  summarise(Min = min(total_articles),
+            Max = max(total_articles),
+            Mean = mean(total_articles))
+
+# Print the statistical information
+print(statistical_info)
+```
+
+```{r}
+#Question 5
+library(knitr)
+
+# Convert the "publish_date" column to date format and extract the day of the week
+irish_df$publish_date <- as.Date(irish_df$publish_date, format = "%A, %dth of %B, %Y")
+irish_df$day_of_week <- weekdays(irish_df$publish_date)
+
+# Compute the total number of articles for each headline category, news provider, and day of the week
+total_articles <- irish_df %>%
+  group_by(headline_category, news_provider, day_of_week) %>%
+  summarise(total_articles = n())
+
+# Compute the average number of articles for each news provider and day of the week
+average_article <- total_articles %>%
+  group_by(news_provider, day_of_week) %>%
+  summarise(average_articles = mean(total_articles))
+
+# Find the day of the week with the highest average number of articles for each provider
+max_avg_day <- average_article %>%
+  group_by(news_provider) %>%
+  filter(average_articles == max(average_articles)) %>%
+  arrange(news_provider)
+
+# Print the table as per the question in the assignment
+kable(max_avg_day, caption = "Day of the week with the highest average number of articles for each news provider")
+```
+
+```{r}
+#Question 6
+# Load the required libraries
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+
+# Convert the "publish_date" column to date format
+irish_df$publish_date <- as.Date(irish_df$publish_date, format = "%A, %dth of %B, %Y")
+
+# Select the data for the years 2019 and 2020
+df_2019_2020 <- irish_df %>%
+  filter(year(publish_date) %in% c(2019, 2020))
+
+# Add a new column named "Period" based on the publish_date values
+df_2019_2020 <- df_2019_2020 %>%
+  mutate(Period = cut(publish_date,
+                      breaks = as.Date(c("2019-01-01", "2019-04-01", "2019-07-01", "2019-10-01", "2020-01-01", "2020-04-01", "2020-07-01", "2021-01-01")),
+                      labels = c("Period 1", "Period 2", "Period 3", "Period 4", "Period 5", "Period 6", "Period 7"),
+                      include.lowest = TRUE))
+
+# Compute the total number of articles by period and headline category for the top 10 headline categories
+top_10_categories <- df_2019_2020 %>%
+  group_by(Period, headline_category) %>%
+  summarise(total_articles = n()) %>%
+  group_by(headline_category) %>%
+  top_n(10, total_articles)
+
+# Plotting Boxplot - Period and Total number of articles
+ggplot(top_10_categories, aes(x = Period, y = total_articles)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Total Number of Articles by Period and Headline Category",
+       x = "Period",
+       y = "Total Number of Articles") + 
+  theme_minimal()
+```
+
+```{r}
+#Question 7
+# Load the required libraries
+#library(dplyr)
+#install.packages("tm")
+#library(tm)
+#install.packages("wordcloud")
+#library(wordcloud)
+#library(ggplot2)
+
+# Read the CSV file into a DataFrame
+irish_df <- read.csv("ireland_news.csv")
+
+# Sample 1% of the data
+set.seed(123)  # For reproducibility
+sampled_irish_df <- irish_df %>%
+  sample_frac(0.01)
+
+# Perform text preprocessing on the sampled data
+preprocess_text <- function(text) {
+  # Convert text to lowercase
+  text <- tolower(text)
+  # Remove numbers and punctuation
+  text <- gsub("[^a-zA-Z\\s]", "", text)
+  # Remove stopwords
+  text <- removeWords(text, stopwords("en"))
+  # Remove extra white spaces
+  text <- gsub("\\s+", " ", text)
+  return(text)
+}
+
+sampled_irish_df$clean_text <- sapply(sampled_irish_df$headline_text, preprocess_text)
+
+# Create a document-term matrix
+corpus <- Corpus(VectorSource(sampled_irish_df$clean_text))
+dtm <- DocumentTermMatrix(corpus)
+
+# Display a portion of the document-term matrix
+inspect(dtm[1:5, 1:10])
+
+# Get word frequencies
+word_freq <- colSums(as.matrix(dtm))
+
+# Get top 10 most frequent words
+top_words <- head(sort(word_freq, decreasing = TRUE), 10)
+
+# Plot the top 10 most frequent words
+word_freq_df <- data.frame(word = names(top_words), freq = top_words)
+p <- ggplot(word_freq_df, aes(x = freq, y = word)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Top 10 Most Frequent Words",
+       x = "Frequency",
+       y = "Word")
+
+# Generate a word cloud
+wordcloud(names(word_freq), word_freq, max.words = 50, random.order = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+
+```{r}
+#Question 8 
+# Convert publish_date to Date format
+irish_df$publish_date <- as.Date(irish_df$publish_date, format="%A, %dth of %B, %Y")
+
+# Extract month and year from publish_date
+irish_df$month_year <- format(irish_df$publish_date, "%Y-%m")
+
+# Aggregate the number of articles published each month using group by function and summarize function
+article_counts <- irish_df %>%
+  group_by(month_year) %>%
+  summarize(Count = n())
+
+# Convert month_year to Date format for plotting
+article_counts$month_year <- as.Date(paste(article_counts$month_year, "-01", sep=""), format="%Y-%m-%d")
+
+# Plot line graph using Number of articles published over tim
+ggplot(article_counts, aes(x = month_year, y = Count)) +
+  geom_line(color = "skyblue") +
+  labs(title = "Number of Articles Published Over Time",
+       x = "Month",
+       y = "Number of Articles") +
+  theme_minimal()
+```

@@ -1,0 +1,92 @@
+---
+title: "Patient Record Maintenance"
+output: html_notebook
+---
+
+```{r}
+library(rpart)
+library(caret)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+
+```
+
+```{r}
+# Load CSV files
+appointment <- read.csv("Appointment.csv")
+billing <- read.csv("Billing.csv")
+doctor <- read.csv("Doctor.csv")
+medical_procedure <- read.csv("Medical Procedure.csv")
+patient <- read.csv("Patient.csv")
+```
+
+```{r}
+# For demonstration purposes, adding a mock DateOfBirth column to patient
+# Remove or replace this line if you have the actual DateOfBirth data
+patient$DateOfBirth <- sample(seq(as.Date('1950/01/01'), as.Date('2000/01/01'), by="day"), nrow(patient), replace = TRUE)
+```
+
+
+```{r}
+# Join data tables for comprehensive analysis
+data <- appointment %>%
+  left_join(patient, by = "PatientID", relationship = "many-to-many") %>%
+  left_join(doctor, by = "DoctorID", relationship = "many-to-many") %>%
+  left_join(billing, by = "PatientID", relationship = "many-to-many") %>%
+  left_join(medical_procedure, by = "AppointmentID", relationship = "many-to-many")
+```
+
+```{r}
+# Calculate PatientAge
+data$PatientAge <- as.numeric(difftime(Sys.Date(), data$DateOfBirth, units = "weeks")) / 52.25
+
+# Check for missing values in the joined data
+print("Missing values in joined data:")
+print(colSums(is.na(data)))
+
+```
+
+```{r}
+# Exploratory Data Analysis
+# Summary statistics
+summary(data)
+```
+
+```{r}
+# Distribution of billing amounts
+ggplot(data, aes(x = Amount)) +
+  geom_histogram(binwidth = 50, fill = "green", color = "black") +
+  labs(title = "Distribution of Billing Amounts", x = "Billing Amount", y = "Frequency")
+```
+
+```{r}
+# Age distribution of patients
+ggplot(data, aes(x = PatientAge)) +
+  geom_histogram(binwidth = 5, fill = "red", color = "black") +
+  labs(title = "Age Distribution of Patients", x = "Age", y = "Frequency") 
+  
+```
+
+```{r}
+# Linear Regression
+# Model to predict billing amount based on other factors
+linear_model <- lm(Amount ~ DoctorName + ProcedureName + Date, data = data)
+summary(linear_model)
+```
+
+```{r}
+# Convert categorical variables to factors
+data$DoctorName <- as.factor(data$DoctorName)
+data$ProcedureName <- as.factor(data$ProcedureName)
+
+# Model to predict billing amount based on other factors
+linear_model <- lm(Amount ~ DoctorName + ProcedureName + Date, data = data)
+summary(linear_model)
+
+# Plotting the linear regression model
+ggplot(data, aes(x = Date, y = Amount)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(title = "Linear Regression: Amount vs Date", x = "Date", y = "Billing Amount")
+ ```

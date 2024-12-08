@@ -1,0 +1,481 @@
+---
+title: "Assignment 4"
+author: "Subbulakshmi Natarajan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#Task B 1
+# Load necessary libraries
+library(rvest)
+library(dplyr)
+library(lubridate)
+library(janitor)
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+# Read data from Wikipedia page
+url <- "https://en.wikipedia.org/wiki/ICC_Men%27s_T20I_Team_Rankings"
+page_content <- read_html(url)
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+tables <- page_content %>% html_table(fill = TRUE, header = TRUE)
+hist_rankings <- tables[[7]] 
+
+# Clean column names
+hist_rankings <- hist_rankings %>% clean_names()
+
+# Remove any extraneous rows if necessary
+clean_hist_rankings <- hist_rankings[-nrow(hist_rankings),]
+
+# Clean up and manipulate date and numeric fields
+clean_hist_rankings <- clean_hist_rankings %>%
+  mutate(
+    start = gsub("\\[.*?\\]", "", start),
+    end = gsub("\\[.*?\\]", "", end),
+    start = gsub("\\(.*?\\)", "", start),  # Remove any parenthetical text
+    end = gsub("\\(.*?\\)", "", end),
+    duration = as.numeric(gsub(" day(s)?", "", duration)),
+    cumulative = as.numeric(gsub(" day(s)?", "", cumulative)),
+    highest_rating = as.numeric(gsub(".*?(\\d+).*", "\\1", highest_rating)),
+    start = dmy(start),
+    end = dmy(end)
+  )
+
+# Replace NA in 'end' column with today's date if still NA after parsing
+clean_hist_rankings$end[is.na(clean_hist_rankings$end)] <- today()
+
+# Summary and sorting with improved handling for NAs
+summary_table <- clean_hist_rankings %>%
+  group_by(country) %>%
+  summarize(
+    Earliest_start = if(all(is.na(start))) as.Date(NA) else min(start, na.rm = TRUE),
+    Latest_end = if(all(is.na(end))) as.Date(NA) else max(end, na.rm = TRUE),
+    Average_duration = if(all(is.na(duration))) NA_real_ else round(mean(duration, na.rm = TRUE), 2),
+    .groups = 'drop'
+  ) %>%
+  arrange(desc(Average_duration))
+
+# Display the summary table
+print(summary_table)
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#Task B2 
+
+#Task B2 
+# Load necessary libraries
+library(rvest)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(janitor)
+
+# Step 1: Scrape Data
+# Assume the correct URL to the WHO vaccination data table (this is hypothetical)
+url <- "https://www.who.int/emergencies/diseases/novel-coronavirus-2019/covid-19-vaccines"
+page_content <- read_html(url)
+tables <- page_content %>% html_table(fill = TRUE, header = TRUE)
+vaccination_data <- tables[[1]]  # Adjust the index based on the actual table
+
+# Step 2: Wrangle Data
+# Display column names to adjust the script correctly
+print(colnames(vaccination_data))
+
+# Assuming columns for country, date of report, and number of doses administered
+vaccination_data <- vaccination_data %>%
+  janitor::clean_names() %>%
+  filter(!is.na(total_doses_administered)) %>%
+  mutate(report_date = dmy(report_date),
+         total_doses_administered = as.numeric(total_doses_administered))
+
+# Step 3: Create a Plot
+ggplot(vaccination_data, aes(x = report_date, y = total_doses_administered, group = country, color = country)) +
+  geom_line() +
+  labs(title = "COVID-19 Vaccination Trends",
+       x = "Date",
+       y = "Total Doses Administered") +
+  theme_minimal()
+
+# Step 4: Discuss the Information or Insights
+# Here you would include analysis in text or comments in an R Markdown document
+# Discussing the acceleration of vaccination efforts, coverage achieved, comparison between countries, etc.
+
+
+
+```
+
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#Task C
+# Load necessary libraries
+library(ggplot2)
+
+# Load the dataset
+tweets_data <- read.csv("Olympics_tweets.csv")
+
+# Convert 'user_created_at' to Date and extract the year
+tweets_data$user_created_at <- as.POSIXct(tweets_data$user_created_at, format="%d/%m/%Y %H:%M")
+tweets_data$year <- format(tweets_data$user_created_at, "%Y")
+
+# Convert the 'year' column to numeric
+tweets_data$year <- as.numeric(tweets_data$year)
+
+# 1.1 Bar chart for number of Twitter accounts created across different years
+accounts_per_year <- as.data.frame(table(tweets_data$year))
+colnames(accounts_per_year) <- c("Year", "Count")
+
+ggplot(accounts_per_year, aes(x = Year, y = Count)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  theme_minimal() +
+  labs(title = "Number of Twitter Accounts Created Per Year", x = "Year", y = "Number of Accounts") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+# 1.2 Average number of "user_followers" for users created after 2010
+tweets_data_post_2010 <- subset(tweets_data, year > 2010)
+
+average_followers_per_year <- aggregate(user_followers ~ year, data = tweets_data_post_2010, FUN = mean)
+
+ggplot(average_followers_per_year, aes(x = as.factor(year), y = user_followers)) +
+  geom_bar(stat = "identity", fill = "lightcoral") +
+  theme_minimal() +
+  labs(title = "Average Number of Followers for Accounts Created Per Year (Post-2010)", x = "Year", y = "Average Number of Followers") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#1.4 
+
+library(dplyr)
+
+# Count the occurrences of different location values, sorted in descending order
+location_counts <- tweets_data %>%
+  count(user_location, sort = TRUE)
+
+# Get the top 10 most frequent location values
+top_10_locations <- head(location_counts, 10)
+
+# Check for any odd values in the top 10 locations
+# This could involve manually inspecting or using specific criteria for what constitutes an 'odd' value.
+print("Top 10 locations and their counts:")
+print(top_10_locations)
+
+# Count the total number of tweets associated with these top 10 locations
+tweets_with_top_10_locations <- tweets_data %>%
+  filter(user_location %in% top_10_locations$user_location) %>%
+  nrow()
+
+# Display the number of tweets associated with the top 10 locations
+print(paste("Total tweets from top 10 locations:", tweets_with_top_10_locations))
+
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#2.1
+
+# Convert 'date' to Date format and extract the date part
+tweets_data$date <- as.POSIXct(tweets_data$date, format="%d/%m/%Y %H:%M")
+tweets_data$tweet_date <- as.Date(tweets_data$date)
+
+# Remove NA values from 'tweet_date'
+tweets_data <- tweets_data %>%
+  filter(!is.na(tweet_date))
+
+# Count the number of tweets posted on each date
+tweets_per_date <- tweets_data %>%
+  count(tweet_date)
+
+# Find the date with the lowest number of tweets
+lowest_tweet_date <- tweets_per_date %>%
+  filter(n == min(n))
+
+# Plotting the bar chart for the number of tweets posted on different dates
+ggplot(tweets_per_date, aes(x = tweet_date, y = n)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  theme_minimal() +
+  labs(title = "Number of Tweets Posted Per Date", x = "Date", y = "Number of Tweets") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display the date with the lowest number of tweets
+lowest_tweet_date
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#2.2
+# Calculate the length of the text contained in each tweet
+tweets_data$text_length <- nchar(as.character(tweets_data$text))
+
+# Define the bins for tweet lengths
+bins <- c(0, 40, 80, 120, 160, 200, 240, Inf)
+labels <- c('1-40', '41-80', '81-120', '121-160', '161-200', '201-240', '>=241')
+
+# Create a new column 'length_category' with the defined bins
+tweets_data$length_category <- cut(tweets_data$text_length, breaks = bins, labels = labels, right = FALSE)
+
+# Count the number of tweets in each length category
+length_category_counts <- tweets_data %>%
+  count(length_category) %>%
+  arrange(length_category)
+
+# Plotting the bar chart for the number of tweets in each length category
+ggplot(length_category_counts, aes(x = length_category, y = n)) +
+  geom_bar(stat = "identity", fill = "lightgreen") +
+  theme_minimal() +
+  labs(title = "Number of Tweets by Length Category", x = "Tweet Length (characters)", y = "Number of Tweets") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display the counts for each length category
+length_category_counts
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#2.3
+# Load necessary libraries
+install.packages("stringer")
+library(stringr)
+
+# Find tweets that contain at least one "@" symbol
+tweets_with_mentions <- tweets_data %>%
+  filter(str_detect(text, "@"))
+
+# Count the number of tweets with mentions
+num_tweets_with_mentions <- nrow(tweets_with_mentions)
+
+# Define a function to count the number of unique mentions in a tweet
+count_unique_mentions <- function(text) {
+  mentions <- unique(str_extract_all(text, "@\\w+")[[1]])
+  return(length(mentions))
+}
+
+# Apply the function to the tweets with mentions
+tweets_with_mentions$num_mentions <- sapply(tweets_with_mentions$text, count_unique_mentions)
+
+# Find tweets with at least three different mentions
+tweets_with_at_least_three_mentions <- tweets_with_mentions %>%
+  filter(num_mentions >= 3)
+
+# Count the number of tweets with at least three different mentions
+num_tweets_with_at_least_three_mentions <- nrow(tweets_with_at_least_three_mentions)
+
+num_tweets_with_mentions
+num_tweets_with_at_least_three_mentions
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#2.4
+# Load necessary libraries
+library(tidytext)
+library(dplyr)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+
+# Load your tweets data if not already loaded
+# tweets_data <- read.csv("path_to_your_tweets_data.csv")
+
+# Tokenize the text into words
+words <- tweets_data %>%
+  unnest_tokens(word, text)
+
+# Load stopwords from the tm package
+data("stopwords")
+english_stopwords <- stopwords("en")
+
+# Filter out stopwords
+filtered_words <- words %>%
+  filter(!word %in% english_stopwords)
+
+# Count the occurrences of each word, sorted by frequency
+word_counts <- filtered_words %>%
+  count(word, sort = TRUE)
+
+# Create a word cloud
+wordcloud(words = word_counts$word, freq = word_counts$n, min.freq = 1,
+          max.words = 100, random.order = FALSE, rot.per = 0.35,
+          colors = brewer.pal(8, "Dark2"))
+
+# If you encounter memory issues, consider sampling your data
+tweets_data <- tweets_data %>% sample_frac(0.5) # Adjust the fraction as needed
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+#Task D
+
+# Install necessary packages
+install.packages("dplyr")
+install.packages("readr")
+install.packages("ggplot2")
+install.packages("stringr")
+install.packages("caret")
+
+# Load necessary libraries
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(stringr)
+library(caret)
+
+# Load datasets
+utterances_train <- read_csv("dialogue_utterance_train.csv")
+usefulness_train <- read_csv("dialogue_usefulness_train.csv")
+utterances_validation <- read_csv("dialogue_utterance_validation.csv")
+usefulness_validation <- read_csv("dialogue_usefulness_validation.csv")
+utterances_test <- read_csv("dialogue_utterance_test.csv")
+
+# Correct column names if necessary
+correct_column_names <- function(df, id_pattern = "ID", text_pattern = "text") {
+  if (!"Dialogue_ID" %in% colnames(df)) {
+    colnames(df)[grepl(id_pattern, colnames(df), ignore.case = TRUE)] <- "Dialogue_ID"
+  }
+  if (!"Utterance_text" %in% colnames(df)) {
+    colnames(df)[grepl(text_pattern, colnames(df), ignore.case = TRUE)] <- "Utterance_text"
+  }
+  return(df)
+}
+
+utterances_train <- correct_column_names(utterances_train)
+usefulness_train <- correct_column_names(usefulness_train, id_pattern = "ID")
+utterances_validation <- correct_column_names(utterances_validation)
+usefulness_validation <- correct_column_names(usefulness_validation, id_pattern = "ID")
+utterances_test <- correct_column_names(utterances_test)
+
+# Data Preparation
+train_data <- inner_join(utterances_train, usefulness_train, by = "Dialogue_ID")
+validation_data <- inner_join(utterances_validation, usefulness_validation, by = "Dialogue_ID")
+
+# Feature Engineering
+train_data <- train_data %>%
+  mutate(word_count = str_count(Utterance_text, '\\w+')) %>%
+  group_by(Dialogue_ID) %>%
+  summarise(
+    length = n(),
+    avg_utterance_length = mean(word_count),
+    Usefulness_score = first(Usefulness_score)
+  )
+# Data Preparation
+train_data <- inner_join(utterances_train, usefulness_train, by = "Dialogue_ID")
+validation_data <- inner_join(utterances_validation, usefulness_validation, by = "Dialogue_ID")
+
+# Feature Engineering
+train_data <- train_data %>%
+  mutate(word_count = str_count(Utterance_text, '\\w+')) %>%
+  group_by(Dialogue_ID) %>%
+  summarise(
+    length = n(),
+    avg_utterance_length = mean(word_count),
+    Usefulness_score = first(Usefulness_score)
+  )
+
+# Visualization with Boxplots
+ggplot(train_data, aes(x = as.factor(Usefulness_score), y = length, fill = as.factor(Usefulness_score))) +
+  geom_boxplot(alpha = 0.5) +
+  labs(title = "Boxplot of Dialogue Length by Usefulness Score", x = "Usefulness Score", y = "Length of Dialogue") +
+  scale_fill_manual(name = "Usefulness Score", values = c("1" = "blue", "2" = "lightblue", "4" = "red", "5" = "pink")) +
+  theme_minimal()
+
+# Adjusting t-test to only compare two groups at a time
+group_1_2 <- filter(train_data, Usefulness_score %in% c(1, 2))
+group_4_5 <- filter(train_data, Usefulness_score %in% c(4, 5))
+combined_groups <- bind_rows(mutate(group_1_2, group = "1-2"), mutate(group_4_5, group = "4-5"))
+
+t_test_result <- t.test(length ~ group, data = combined_groups)
+print(t_test_result)
+
+# Feature Engineering for Length of Dialogue and Average Utterance Length
+dialogue_length_train <- train_data %>%
+  group_by(Dialogue_ID) %>%
+  summarise(length = n())
+
+utterance_length_train <- train_data %>%
+  mutate(word_count = str_count(Utterance_text, '\\w+')) %>%
+  group_by(Dialogue_ID) %>%
+  summarise(avg_utterance_length = mean(word_count))
+
+dialogue_length_validation <- validation_data %>%
+  group_by(Dialogue_ID) %>%
+  summarise(length = n())
+
+utterance_length_validation <- validation_data %>%
+  mutate(word_count = str_count(Utterance_text, '\\w+')) %>%
+  group_by(Dialogue_ID) %>%
+  summarise(avg_utterance_length = mean(word_count))
+
+# Combine features with usefulness scores
+train_features <- dialogue_length_train %>%
+  inner_join(utterance_length_train, by = "Dialogue_ID") %>%
+  inner_join(usefulness_train, by = "Dialogue_ID")
+
+validation_features <- dialogue_length_validation %>%
+  inner_join(utterance_length_validation, by = "Dialogue_ID") %>%
+  inner_join(usefulness_validation, by = "Dialogue_ID")
+
+# Handle outliers: Remove outliers beyond 3 standard deviations
+train_features <- train_features %>%
+  filter(abs(length - mean(length)) / sd(length) < 3) %>%
+  filter(abs(avg_utterance_length - mean(avg_utterance_length)) / sd(avg_utterance_length) < 3)
+
+# Rescale data
+scaler <- preProcess(train_features[, c("length", "avg_utterance_length")], method = c("center", "scale"))
+train_features[, c("length", "avg_utterance_length")] <- predict(scaler, train_features[, c("length", "avg_utterance_length")])
+
+
+# Prepare data for modeling
+train_features <- select(train_features, -Dialogue_ID)
+validation_features <- select(validation_features, -Dialogue_ID)
+
+# Function to evaluate model performance
+evaluate_model <- function(model, validation_features) {
+  preds <- predict(model, newdata = validation_features)
+  rmse <- RMSE(preds, validation_features$Usefulness_score)
+  r2 <- R2(preds, validation_features$Usefulness_score)
+  list(rmse = rmse, r2 = r2)
+}
+
+# Polynomial regression model
+poly_model <- lm(Usefulness_score ~ poly(length, 2, raw = TRUE) + poly(avg_utterance_length, 2, raw = TRUE), data = train_features)
+poly_results <- tryCatch({
+  evaluate_model(poly_model, validation_features)
+}, error = function(e) {
+  cat("Error in polynomial regression model: ", e$message, "\n")
+  list(rmse = Inf, r2 = -Inf)
+})
+
+# Print evaluation metrics
+cat("Polynomial Regression Model - RMSE:", poly_results$rmse, "R2:", poly_results$r2, "\n")
+
+# Feature Engineering for the test set
+num_utterances_test <- utterances_test %>%
+  group_by(Dialogue_ID) %>%
+  summarise(num_utterances = n())
+
+avg_utterance_length_test <- utterances_test %>%
+  mutate(word_count = str_count(Utterance_text, '\\w+')) %>%
+  group_by(Dialogue_ID) %>%
+  summarise(avg_utterance_length = mean(word_count))
+
+# Combine features
+test_features <- inner_join(num_utterances_test, avg_utterance_length_test, by = "Dialogue_ID")
+
+# Rescale the test features using the scaler from the training set
+selected_features <- c("num_utterances", "avg_utterance_length")
+test_features[, selected_features] <- predict(scaler, test_features[, selected_features])
+
+# Predict the usefulness score for the test set using the polynomial regression model
+predicted_usefulness_test <- predict(poly_model, newdata = test_features)
+
+# Populate the predicted usefulness scores into the usefulness_test dataframe
+usefulness_test <- utterances_test %>%
+  select(Dialogue_ID) %>%
+  distinct() %>%
+  mutate(Usefulness_score = predicted_usefulness_test)
+
+# Left join the predicted usefulness scores with the test set
+usefulness_test <- left_join(utterances_test, usefulness_test, by = "Dialogue_ID")
+
+# Save the predictions to a new CSV file
+write_csv(usefulness_test, "subbulakshmi_34069178_dialogue_usefulness_test.csv")
